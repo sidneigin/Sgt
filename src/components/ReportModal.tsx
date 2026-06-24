@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Clock, MapPin, User, Users, FileText, X, FileDown, ShieldCheck, Cloud, RefreshCw } from 'lucide-react';
 import { EventReport } from '../types';
 import { formatDate, generateSingleReportPDF } from '../utils/pdfGenerator';
+import logoImg from '../assets/images/insanos_sgt_de_armas_logo_1782309633861.jpg';
 
 interface ReportModalProps {
   report: EventReport | null;
@@ -45,14 +46,24 @@ export default function ReportModal({
             className="relative z-10 w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-100"
           >
             {/* Header / Accent top bar */}
-            <div className="bg-slate-800 px-6 py-5 text-white flex items-start justify-between">
-              <div>
-                <span className="text-xs font-mono tracking-widest text-indigo-400 uppercase">
-                  Visualização de Relatório
-                </span>
-                <h3 className="text-lg font-bold font-sans tracking-tight leading-tight mt-1">
-                  {report.evento}
-                </h3>
+            <div className="bg-slate-800 px-6 py-5 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-700 bg-slate-900 flex items-center justify-center shrink-0">
+                  <img 
+                    src={logoImg} 
+                    alt="Insanos MC Logo" 
+                    className="w-full h-full object-cover" 
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div>
+                  <span className="text-xs font-mono tracking-widest text-indigo-400 uppercase">
+                    Visualização de Relatório
+                  </span>
+                  <h3 className="text-lg font-bold font-sans tracking-tight leading-tight mt-1">
+                    {report.evento}
+                  </h3>
+                </div>
               </div>
               <button
                 id="close-modal-button"

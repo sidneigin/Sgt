@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { EventReport } from '../types';
+import logoImg from '../assets/images/insanos_sgt_de_armas_logo_1782309633861.jpg';
 
 // Helper to format date from YYYY-MM-DD to DD/MM/YYYY
 export function formatDate(dateStr: string): string {
@@ -12,8 +13,18 @@ export function formatDate(dateStr: string): string {
   return dateStr;
 }
 
+// Helper to load logo image asynchronously for jsPDF
+function loadLogoImage(): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load logo image'));
+    img.src = logoImg;
+  });
+}
+
 // Generate PDF for a single report
-export function generateSingleReportPDF(report: EventReport) {
+export async function generateSingleReportPDF(report: EventReport) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -23,6 +34,14 @@ export function generateSingleReportPDF(report: EventReport) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
+
+  // Load logo image
+  let logoElement: HTMLImageElement | null = null;
+  try {
+    logoElement = await loadLogoImage();
+  } catch (err) {
+    console.error('Logo image could not be loaded for PDF', err);
+  }
 
   // Primary palette
   const primaryColor: [number, number, number] = [30, 41, 59]; // Slate 800
@@ -34,21 +53,27 @@ export function generateSingleReportPDF(report: EventReport) {
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.rect(0, 0, pageWidth, 40, 'F');
 
+  // Add logo to Header Banner if loaded
+  if (logoElement) {
+    doc.addImage(logoElement, 'JPEG', pageWidth - margin - 25, 7.5, 25, 25);
+  }
+
   // Title inside Banner
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text('RELATÓRIO SGT ARMAS CMD XXIX - IMC', margin, 24);
+  doc.setFontSize(15);
+  doc.text('RELATÓRIO SGT ARMAS CMD XXIX - IMC', margin, 18);
 
   // Subtitle/Logo text
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.text('SISTEMA DE REGISTRO E GESTÃO DE RELATÓRIOS', margin, 32);
+  doc.setFontSize(9);
+  doc.text('SISTEMA DE REGISTRO E GESTÃO DE RELATÓRIOS', margin, 25);
 
   // Date of PDF Generation in header
   const genDateStr = new Date().toLocaleDateString('pt-BR');
-  doc.setFontSize(9);
-  doc.text(`Emitido em: ${genDateStr}`, pageWidth - margin - 40, 24);
+  doc.setFontSize(8);
+  doc.setTextColor(156, 163, 175);
+  doc.text(`Emitido em: ${genDateStr}`, margin, 31);
 
   let currentY = 52;
 
@@ -164,6 +189,10 @@ export function generateSingleReportPDF(report: EventReport) {
       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.rect(0, 0, pageWidth, 15, 'F');
       
+      if (logoElement) {
+        doc.addImage(logoElement, 'JPEG', pageWidth - margin - 10, 2.5, 10, 10);
+      }
+      
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
@@ -197,7 +226,7 @@ export function generateSingleReportPDF(report: EventReport) {
 }
 
 // Generate a consolidated PDF table of multiple reports
-export function generateConsolidatedReportsPDF(reports: EventReport[]) {
+export async function generateConsolidatedReportsPDF(reports: EventReport[]) {
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
@@ -208,6 +237,14 @@ export function generateConsolidatedReportsPDF(reports: EventReport[]) {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
 
+  // Load logo image
+  let logoElement: HTMLImageElement | null = null;
+  try {
+    logoElement = await loadLogoImage();
+  } catch (err) {
+    console.error('Logo image could not be loaded for PDF', err);
+  }
+
   const primaryColor: [number, number, number] = [30, 41, 59]; // Slate 800
   const accentColor: [number, number, number] = [79, 70, 229]; // Indigo 600
 
@@ -215,17 +252,22 @@ export function generateConsolidatedReportsPDF(reports: EventReport[]) {
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.rect(0, 0, pageWidth, 35, 'F');
 
+  // Add logo to Header Banner if loaded
+  if (logoElement) {
+    doc.addImage(logoElement, 'JPEG', pageWidth - margin - 22, 6.5, 22, 22);
+  }
+
   // Title
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text('CONSOLIDADO DE RELATÓRIOS SGT ARMAS CMD XXIX', margin, 20);
+  doc.setFontSize(16);
+  doc.text('CONSOLIDADO DE RELATÓRIOS SGT ARMAS CMD XXIX', margin, 18);
 
   // Details
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   const genDateStr = new Date().toLocaleDateString('pt-BR');
-  doc.text(`Total de relatórios listados: ${reports.length}   |   Data de Emissão: ${genDateStr}`, margin, 28);
+  doc.text(`Total de relatórios listados: ${reports.length}   |   Data de Emissão: ${genDateStr}`, margin, 26);
 
   // 2. Prepare Data Table
   const tableHeaders = [['Evento', 'Data / Hora', 'Local', 'Responsável', 'Conferido por', 'Resumo da Descrição']];

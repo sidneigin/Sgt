@@ -32,6 +32,7 @@ import {
   getAccessToken
 } from './lib/firebase';
 import { User as FirebaseUser } from 'firebase/auth';
+import logoImg from './assets/images/insanos_sgt_de_armas_logo_1782309633861.jpg';
 
 const MOCK_REPORTS: EventReport[] = [
   {
@@ -270,7 +271,7 @@ export default function App() {
       triggerAlert('Sincronizando PDF com o Google Drive...');
 
       // Generate the PDF document
-      const doc = generateSingleReportPDF(report);
+      const doc = await generateSingleReportPDF(report);
       const blob = doc.output('blob');
       const filename = `relatorio_${report.evento.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${report.data}.pdf`;
 
@@ -308,7 +309,7 @@ export default function App() {
       triggerAlert('Enviando tabela consolidada para o Google Drive...');
 
       // Generate Consolidated PDF
-      const doc = generateConsolidatedReportsPDF(filteredReports);
+      const doc = await generateConsolidatedReportsPDF(filteredReports);
       const blob = doc.output('blob');
       const filename = `consolidado_relatorios_${new Date().toISOString().split('T')[0]}.pdf`;
 
@@ -426,8 +427,13 @@ export default function App() {
       <header className="bg-slate-900 text-white shadow-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-indigo-600 p-2 rounded-xl text-white">
-              <FileText className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-700 bg-slate-800 flex items-center justify-center shrink-0">
+              <img 
+                src={logoImg} 
+                alt="Insanos MC Logo" 
+                className="w-full h-full object-cover" 
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div>
               <h1 className="text-md sm:text-lg font-bold tracking-tight font-sans">
@@ -600,7 +606,7 @@ export default function App() {
 
       {/* Flat simple footer */}
       <footer className="bg-slate-900 border-t border-slate-800 py-4 text-center text-slate-500 text-[11px] font-mono">
-        Relatório Sgt Armas CMD XXIX - IMC © 2026 • Projetado com atenção aos detalhes corporativos
+        Relatório Sgt Armas CMD XXIX - IMC © 2026 • Sid Sgt Armas
       </footer>
     </div>
   );

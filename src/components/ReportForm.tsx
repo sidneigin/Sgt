@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, User, Users, FileText, CheckCircle, RotateCcw, AlertCircle, Sparkles } from 'lucide-react';
 import { EventReport } from '../types';
+import logoImg from '../assets/images/insanos_sgt_de_armas_logo_1782309633861.jpg';
 
 interface ReportFormProps {
   editingReport: EventReport | null;
@@ -93,9 +94,14 @@ export default function ReportForm({ editingReport, onSave, onCancelEdit }: Repo
     <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-6 flex flex-col h-full overflow-hidden">
       {/* Form Header */}
       <div className="mb-5 border-b border-slate-100 pb-4">
-        <div className="flex items-center gap-2">
-          <div className={`p-2 rounded-xl text-white ${editingReport ? 'bg-indigo-600' : 'bg-slate-800'}`}>
-            <Sparkles className="w-4 h-4" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center shrink-0 shadow-xs">
+            <img 
+              src={logoImg} 
+              alt="Insanos MC Logo" 
+              className="w-full h-full object-cover" 
+              referrerPolicy="no-referrer"
+            />
           </div>
           <div>
             <h2 className="text-lg font-bold font-sans tracking-tight text-slate-800">
