@@ -1,0 +1,6 @@
+{
+  "name": "Relatório Sgt Armas CMD XXIX - IMC",
+  "description": "Gerenciador de relatórios Sgt Armas CMD XXIX - IMC e gerador de PDFs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
