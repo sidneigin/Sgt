@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Download, 
-  Upload, 
   ShieldCheck, 
   HelpCircle, 
   FileText, 
@@ -85,8 +83,6 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isUploadingToDrive, setIsUploadingToDrive] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load auth state on mount
   useEffect(() => {
@@ -360,66 +356,6 @@ export default function App() {
     setEditingReport(null);
   };
 
-  // Export reports to JSON backup
-  const handleExportBackup = () => {
-    try {
-      const dataStr = JSON.stringify(reports, null, 2);
-      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-      
-      const exportFileDefaultName = `backup_relatorios_eventos_${new Date().toISOString().split('T')[0]}.json`;
-      
-      const linkElement = document.createElement('a');
-      linkElement.setAttribute('href', dataUri);
-      linkElement.setAttribute('download', exportFileDefaultName);
-      linkElement.click();
-      
-      triggerAlert('Backup exportado com sucesso!');
-    } catch (e) {
-      triggerAlert('Falha ao exportar backup.', 'error');
-    }
-  };
-
-  // Import reports from JSON backup
-  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileReader = new FileReader();
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    fileReader.onload = (event) => {
-      try {
-        const fileContent = event.target?.result as string;
-        const imported = JSON.parse(fileContent);
-
-        if (Array.isArray(imported)) {
-          // Validate structure of first item at least
-          const isValid = imported.every((item: any) => 
-            item && typeof item === 'object' && 'evento' in item && 'data' in item && 'local' in item
-          );
-
-          if (isValid) {
-            // Merge with existing by adding unique items, or overwrite. Let's merge based on custom ID or match fields
-            const existingIds = new Set(reports.map(r => r.id));
-            const newReports = [...imported.filter(r => !existingIds.has(r.id)), ...reports];
-            
-            setReports(newReports);
-            localStorage.setItem('event_reports', JSON.stringify(newReports));
-            triggerAlert(`${imported.length} relatórios importados com sucesso!`);
-          } else {
-            triggerAlert('O arquivo JSON não está no formato correto de relatórios.', 'error');
-          }
-        } else {
-          triggerAlert('O backup precisa conter uma lista de relatórios.', 'error');
-        }
-      } catch (err) {
-        triggerAlert('Falha ao ler o arquivo JSON de backup.', 'error');
-      }
-    };
-
-    fileReader.readAsText(files[0]);
-    // Clear value to allow re-upload of same file
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
       
@@ -496,36 +432,6 @@ export default function App() {
                 <span>Entrar com Google</span>
               </button>
             )}
-
-            {/* Import Backup (Hidden input + label trigger) */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImportBackup}
-              accept=".json"
-              className="hidden"
-              id="import-backup-file"
-            />
-            <button
-              id="btn-import-backup"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 text-xs font-semibold py-2 px-3 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 active:bg-slate-600 transition-all cursor-pointer"
-              title="Importar relatórios de um arquivo JSON"
-            >
-              <Upload className="w-4 h-4" />
-              <span className="hidden md:inline">Importar Backup</span>
-            </button>
-
-            {/* Export Backup */}
-            <button
-              id="btn-export-backup"
-              onClick={handleExportBackup}
-              className="flex items-center gap-1.5 text-xs font-semibold py-2 px-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 transition-all cursor-pointer"
-              title="Exportar todos os relatórios como arquivo JSON"
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden md:inline">Exportar Backup</span>
-            </button>
           </div>
         </div>
       </header>
