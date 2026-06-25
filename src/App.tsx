@@ -165,9 +165,11 @@ export default function App() {
         setUser(res.user);
         triggerAlert(`Bem-vindo, ${res.user.displayName}! Sincronizando relatórios...`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      triggerAlert('Falha ao autenticar com o Google.', 'error');
+      const errorMessage = error?.message || 'Falha ao autenticar com o Google.';
+      const errorCode = error?.code ? ` (${error.code})` : '';
+      triggerAlert(`Falha ao autenticar com o Google: ${errorMessage}${errorCode}`, 'error');
     }
   };
 
