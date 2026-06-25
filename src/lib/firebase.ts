@@ -111,8 +111,7 @@ export const subscribeToReports = (
 ) => {
   const q = query(
     collection(db, 'reports'),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
+    where('userId', '==', userId)
   );
 
   return onSnapshot(
@@ -135,6 +134,10 @@ export const subscribeToReports = (
           userId: data.userId,
         } as EventReport);
       });
+      
+      // Sort in memory by createdAt descending
+      reports.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      
       onUpdate(reports);
     },
     (error) => {
