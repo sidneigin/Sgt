@@ -127,8 +127,11 @@ export default function App() {
           setReports(firestoreReports);
           setIsSyncing(false);
         },
-        (error) => {
-          triggerAlert('Erro ao carregar relatórios do Firestore.', 'error');
+        (error: any) => {
+          console.error('Erro Firestore:', error);
+          const errorMessage = error?.message || 'Erro desconhecido.';
+          const errorCode = error?.code ? ` (${error.code})` : '';
+          triggerAlert(`Erro ao carregar relatórios do Firestore: ${errorMessage}${errorCode}`, 'error');
           setIsSyncing(false);
         }
       );
@@ -223,9 +226,10 @@ export default function App() {
         triggerAlert('Relatório cadastrado com sucesso!');
         setSelectedReportId(newReport.id);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      triggerAlert('Erro ao salvar o relatório.', 'error');
+      const errorMessage = error?.message || 'Erro desconhecido.';
+      triggerAlert(`Erro ao salvar o relatório: ${errorMessage}`, 'error');
     }
   };
 
@@ -247,9 +251,10 @@ export default function App() {
         setEditingReport(null);
       }
       triggerAlert('Relatório excluído com sucesso!', 'success');
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      triggerAlert('Erro ao excluir o relatório.', 'error');
+      const errorMessage = error?.message || 'Erro desconhecido.';
+      triggerAlert(`Erro ao excluir o relatório: ${errorMessage}`, 'error');
     }
   };
 
