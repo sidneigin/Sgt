@@ -325,14 +325,26 @@ export default function ReportForm({ editingReport, onSave, onCancelEdit }: Repo
               </button>
             </>
           ) : (
-            <button
-              type="submit"
-              id="form-submit-save"
-              className="w-full bg-slate-800 hover:bg-slate-900 active:bg-black text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <CheckCircle className="w-4 h-4" />
-              Salvar Relatório
-            </button>
+            <div className="flex gap-2 w-full">
+              <button
+                type="submit"
+                id="form-submit-save"
+                className="flex-[2] bg-slate-800 hover:bg-slate-900 active:bg-black text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Salvar Relatório
+              </button>
+              <button
+                type="button"
+                id="form-clear-fields"
+                onClick={clearForm}
+                className="flex-1 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-600 border border-slate-200 text-xs font-semibold py-2.5 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1"
+                title="Limpar todos os campos do formulário"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+                Limpar
+              </button>
+            </div>
           )}
         </div>
       </form>
