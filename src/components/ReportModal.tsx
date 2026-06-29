@@ -1,8 +1,9 @@
+import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Clock, MapPin, User, Users, FileText, X, FileDown, ShieldCheck, Cloud, RefreshCw } from 'lucide-react';
 import { EventReport } from '../types';
-import { formatDate, generateSingleReportPDF } from '../utils/pdfGenerator';
-import logoImg from '../assets/images/insanos_sgt_de_armas_logo_1782309633861.jpg';
+import { formatDate } from '../utils/formatDate';
+import logoImg from '../assets/images/sgt_armas_logo_ui.jpg';
 
 interface ReportModalProps {
   report: EventReport | null;
@@ -21,6 +22,22 @@ export default function ReportModal({
   onSaveToDrive,
   isUploadingToDrive
 }: ReportModalProps) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Fecha com a tecla Escape e move o foco para o botão de fechar ao abrir,
+  // como esperado em qualquer modal acessível por teclado/leitor de tela.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!report) return null;
 
   return (
@@ -43,6 +60,9 @@ export default function ReportModal({
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', duration: 0.5, bounce: 0.15 }}
             id="report-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="report-detail-modal-title"
             className="relative z-10 w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-100"
           >
             {/* Header / Accent top bar */}
@@ -60,16 +80,18 @@ export default function ReportModal({
                   <span className="text-xs font-mono tracking-widest text-indigo-400 uppercase">
                     Visualização de Relatório
                   </span>
-                  <h3 className="text-lg font-bold font-sans tracking-tight leading-tight mt-1">
+                  <h3 id="report-detail-modal-title" className="text-lg font-bold font-sans tracking-tight leading-tight mt-1">
                     {report.evento}
                   </h3>
                 </div>
               </div>
               <button
+                ref={closeButtonRef}
                 id="close-modal-button"
                 onClick={onClose}
                 className="rounded-lg p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 transition-all cursor-pointer"
                 title="Fechar"
+                aria-label="Fechar visualização do relatório"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -172,7 +194,7 @@ export default function ReportModal({
               )}
               <button
                 id="modal-pdf-button"
-                onClick={() => generateSingleReportPDF(report)}
+                onClick={() => import('../utils/pdfGenerator').then(({ generateSingleReportPDF }) => generateSingleReportPDF(report))}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-md shadow-indigo-100 transition-all cursor-pointer"
               >
                 <FileDown className="w-4 h-4" />

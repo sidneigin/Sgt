@@ -162,65 +162,81 @@ export const deleteReportFromFirestore = async (reportId: string) => {
   await deleteDoc(reportDocRef);
 };
 
-// Sync multiple local reports to Firestore on first sign-in
-export const syncLocalReportsToFirestore = async (localReports: EventReport[], userId: string) => {
-  for (const report of localReports) {
-    // Only upload if it doesn't already have a userId or is identified as local
-    await saveReportToFirestore(report, userId);
-  }
-};
-
 /**
  * Google Drive API integration helpers
  */
 
+// Cache da pasta por nome, para evitar buscas repetidas e criação de pastas duplicadas
+// quando múltiplos uploads ocorrem em rápida sucessão na mesma sessão.
+const folderIdCache = new Map<string, string>();
+const folderCreationInFlight = new Map<string, Promise<string | null>>();
+
 // Helper to get or create a folder in Google Drive
 async function getOrCreateFolder(accessToken: string, folderName: string): Promise<string | null> {
-  try {
-    const q = `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-    const response = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`,
-      {
+  // Se já temos o ID em cache nesta sessão, usa direto (evita race condition e chamadas extras)
+  const cached = folderIdCache.get(folderName);
+  if (cached) return cached;
+
+  // Se já existe uma busca/criação em andamento para essa pasta, espera ela em vez de
+  // disparar outra (evita criar duas pastas com o mesmo nome em uploads simultâneos)
+  const inFlight = folderCreationInFlight.get(folderName);
+  if (inFlight) return inFlight;
+
+  const promise = (async (): Promise<string | null> => {
+    try {
+      const q = `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Erro ao buscar pasta: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (data.files && data.files.length > 0) {
+        const id = data.files[0].id;
+        folderIdCache.set(folderName, id);
+        return id;
+      }
+
+      // Create the folder
+      const folderMetadata = {
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder',
+      };
+
+      const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify(folderMetadata),
+      });
+
+      if (!createResponse.ok) {
+        throw new Error(`Erro ao criar pasta: ${createResponse.statusText}`);
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Erro ao buscar pasta: ${response.statusText}`);
+      const createdFolder = await createResponse.json();
+      folderIdCache.set(folderName, createdFolder.id);
+      return createdFolder.id;
+    } catch (error) {
+      console.error('getOrCreateFolder Error:', error);
+      return null;
+    } finally {
+      folderCreationInFlight.delete(folderName);
     }
+  })();
 
-    const data = await response.json();
-    if (data.files && data.files.length > 0) {
-      return data.files[0].id;
-    }
-
-    // Create the folder
-    const folderMetadata = {
-      name: folderName,
-      mimeType: 'application/vnd.google-apps.folder',
-    };
-
-    const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(folderMetadata),
-    });
-
-    if (!createResponse.ok) {
-      throw new Error(`Erro ao criar pasta: ${createResponse.statusText}`);
-    }
-
-    const createdFolder = await createResponse.json();
-    return createdFolder.id;
-  } catch (error) {
-    console.error('getOrCreateFolder Error:', error);
-    return null;
-  }
+  folderCreationInFlight.set(folderName, promise);
+  return promise;
 }
 
 // Upload PDF blob to Google Drive

@@ -1,17 +1,11 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { EventReport } from '../types';
-import logoImg from '../assets/images/insanos_sgt_de_armas_logo_1782309633861.jpg';
+import logoImg from '../assets/images/sgt_armas_logo_pdf.jpg';
+import { formatDate } from './formatDate';
 
-// Helper to format date from YYYY-MM-DD to DD/MM/YYYY
-export function formatDate(dateStr: string): string {
-  if (!dateStr) return '';
-  const parts = dateStr.split('-');
-  if (parts.length === 3) {
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
-  }
-  return dateStr;
-}
+// Re-exportado para manter compatibilidade com quem ainda importa de pdfGenerator
+export { formatDate };
 
 // Helper to load logo image asynchronously for jsPDF
 function loadLogoImage(): Promise<HTMLImageElement> {

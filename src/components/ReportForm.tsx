@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, User, Users, FileText, CheckCircle, RotateCcw, AlertCircle, Sparkles } from 'lucide-react';
 import { EventReport } from '../types';
-import logoImg from '../assets/images/insanos_sgt_de_armas_logo_1782309633861.jpg';
+import logoImg from '../assets/images/sgt_armas_logo_ui.jpg';
 
 interface ReportFormProps {
   editingReport: EventReport | null;
@@ -56,10 +56,25 @@ export default function ReportForm({ editingReport, onSave, onCancelEdit }: Repo
     const newErrors: { [key: string]: string } = {};
 
     if (!evento.trim()) newErrors.evento = 'O nome do evento é obrigatório.';
-    if (!data) newErrors.data = 'A data do evento é obrigatória.';
+    if (!data) {
+      newErrors.data = 'A data do evento é obrigatória.';
+    } else {
+      const [year, month, day] = data.split('-').map(Number);
+      const parsed = new Date(year, month - 1, day);
+      const isRealDate =
+        parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day;
+      if (!isRealDate) newErrors.data = 'A data informada não é válida.';
+    }
     if (!hora) newErrors.hora = 'O horário é obrigatório.';
     if (!local.trim()) newErrors.local = 'O local é obrigatório.';
-    if (!descricao.trim()) newErrors.descricao = 'A descrição detalhada é obrigatória.';
+    if (!descricao.trim()) {
+      newErrors.descricao = 'A descrição detalhada é obrigatória.';
+    } else if (descricao.length > 10000) {
+      newErrors.descricao = `A descrição excede o limite de 10.000 caracteres (atual: ${descricao.length}).`;
+    }
+    if (participantes.length > 5000) {
+      newErrors.participantes = `A lista de participantes excede o limite de 5.000 caracteres (atual: ${participantes.length}).`;
+    }
     if (!responsavel.trim()) newErrors.responsavel = 'O responsável é obrigatório.';
     if (!conferidoPor.trim()) newErrors.conferidoPor = 'O conferente é obrigatório.';
 
@@ -91,7 +106,7 @@ export default function ReportForm({ editingReport, onSave, onCancelEdit }: Repo
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-6 flex flex-col h-full overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-6 flex flex-col md:h-full md:overflow-hidden">
       {/* Form Header */}
       <div className="mb-5 border-b border-slate-100 pb-4">
         <div className="flex items-center gap-3">
@@ -227,10 +242,17 @@ export default function ReportForm({ editingReport, onSave, onCancelEdit }: Repo
               onChange={(e) => setParticipantes(e.target.value)}
               placeholder="Ex: Sidnei Bogas, Ana Souza, Carlos Eduardo..."
               rows={2}
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-slate-200 focus:border-indigo-400 focus:ring-indigo-100 outline-none focus:ring-3 transition-all resize-none"
+              className={`w-full pl-9 pr-3 py-2 text-sm rounded-xl border ${
+                errors.participantes ? 'border-rose-400 bg-rose-50/10 focus:ring-rose-200' : 'border-slate-200 focus:border-indigo-400 focus:ring-indigo-100'
+              } outline-none focus:ring-3 transition-all resize-none`}
             />
             <Users className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           </div>
+          {errors.participantes && (
+            <p className="text-[10px] text-rose-500 font-medium flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" /> {errors.participantes}
+            </p>
+          )}
         </div>
 
         {/* Descrição Detalhada */}

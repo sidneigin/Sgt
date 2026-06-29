@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Config real do Firebase (contém a API key do projeto) — não versionar.
+# Use firebase-applet-config.example.json como modelo.
+firebase-applet-config.json
