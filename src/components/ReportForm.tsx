@@ -1,13 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, User, Users, FileText, CheckCircle, RotateCcw, AlertCircle, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Calendar, Clock, MapPin, User, Users, FileText, CheckCircle, RotateCcw, AlertCircle, Sparkles, Camera, X, ImageOff } from 'lucide-react';
 import { EventReport } from '../types';
 import logoImg from '../assets/images/sgt_armas_logo_ui.jpg';
 
 interface ReportFormProps {
   editingReport: EventReport | null;
-  onSave: (reportData: Omit<EventReport, 'id' | 'createdAt'>) => void;
+  onSave: (reportData: Omit<EventReport, 'id' | 'createdAt'>, photoChange: PhotoChange) => void;
   onCancelEdit: () => void;
 }
+
+// Representa a intenção do usuário em relação à foto deste envio:
+// - 'none': nada mudou (mantém a foto existente, se houver, ou continua sem foto)
+// - 'remove': o usuário removeu a foto que já existia
+// - { file }: o usuário selecionou uma nova foto para upload
+export type PhotoChange = { type: 'none' } | { type: 'remove' } | { type: 'set'; file: File };
+
+const MAX_PHOTO_SIZE_BYTES = 8 * 1024 * 1024; // 8MB
+const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
 export default function ReportForm({ editingReport, onSave, onCancelEdit }: ReportFormProps) {
   const [evento, setEvento] = useState('');
@@ -18,6 +27,14 @@ export default function ReportForm({ editingReport, onSave, onCancelEdit }: Repo
   const [descricao, setDescricao] = useState('');
   const [responsavel, setResponsavel] = useState('');
   const [conferidoPor, setConferidoPor] = useState('');
+
+  // Estado da foto: arquivo novo selecionado (ainda não enviado), preview local,
+  // foto existente vinda do relatório em edição, e se ela foi marcada para remoção.
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Validation errors state
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -34,11 +51,23 @@ export default function ReportForm({ editingReport, onSave, onCancelEdit }: Repo
       setDescricao(editingReport.descricao);
       setResponsavel(editingReport.responsavel);
       setConferidoPor(editingReport.conferidoPor || '');
+      setExistingPhotoUrl(editingReport.fotoUrl || null);
+      setPhotoFile(null);
+      setPhotoPreviewUrl(null);
+      setPhotoRemoved(false);
       setErrors({});
     } else {
       clearForm();
     }
   }, [editingReport]);
+
+  // Libera a URL de preview gerada localmente ao trocar de foto ou desmontar o componente,
+  // evitando vazamento de memória (URL.createObjectURL não é liberada sozinha).
+  useEffect(() => {
+    return () => {
+      if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    };
+  }, [photoPreviewUrl]);
 
   const clearForm = () => {
     setEvento('');
@@ -49,7 +78,43 @@ export default function ReportForm({ editingReport, onSave, onCancelEdit }: Repo
     setDescricao('');
     setResponsavel('');
     setConferidoPor('');
+    setPhotoFile(null);
+    setPhotoPreviewUrl(null);
+    setExistingPhotoUrl(null);
+    setPhotoRemoved(false);
     setErrors({});
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite selecionar o mesmo arquivo de novo depois, se necessário
+    if (!file) return;
+
+    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+      setErrors((prev) => ({ ...prev, foto: 'Formato não suportado. Use JPEG, PNG, WEBP ou HEIC.' }));
+      return;
+    }
+    if (file.size > MAX_PHOTO_SIZE_BYTES) {
+      setErrors((prev) => ({ ...prev, foto: 'A foto excede o limite de 8MB.' }));
+      return;
+    }
+
+    setErrors((prev) => {
+      const { foto, ...rest } = prev;
+      return rest;
+    });
+
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    setPhotoFile(file);
+    setPhotoPreviewUrl(URL.createObjectURL(file));
+    setPhotoRemoved(false);
+  };
+
+  const handleRemovePhoto = () => {
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    setPhotoFile(null);
+    setPhotoPreviewUrl(null);
+    if (existingPhotoUrl) setPhotoRemoved(true);
   };
 
   const validate = (): boolean => {
@@ -86,6 +151,12 @@ export default function ReportForm({ editingReport, onSave, onCancelEdit }: Repo
     e.preventDefault();
     if (!validate()) return;
 
+    const photoChange: PhotoChange = photoFile
+      ? { type: 'set', file: photoFile }
+      : photoRemoved
+      ? { type: 'remove' }
+      : { type: 'none' };
+
     onSave({
       evento: evento.trim(),
       data,
@@ -95,10 +166,9 @@ export default function ReportForm({ editingReport, onSave, onCancelEdit }: Repo
       descricao: descricao.trim(),
       responsavel: responsavel.trim(),
       conferidoPor: conferidoPor.trim(),
-    });
+    }, photoChange);
 
     if (!editingReport) {
-      // Show short success hint
       setShowSuccessHint(true);
       setTimeout(() => setShowSuccessHint(false), 3000);
       clearForm();
@@ -251,6 +321,85 @@ export default function ReportForm({ editingReport, onSave, onCancelEdit }: Repo
           {errors.participantes && (
             <p className="text-[10px] text-rose-500 font-medium flex items-center gap-1">
               <AlertCircle className="w-3 h-3" /> {errors.participantes}
+            </p>
+          )}
+        </div>
+
+        {/* Foto do Evento */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-slate-500 block">Foto do evento</label>
+
+          {/* Preview da foto selecionada ou existente */}
+          {(photoPreviewUrl || (existingPhotoUrl && !photoRemoved)) ? (
+            <div className="relative w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+              <img
+                src={photoPreviewUrl || existingPhotoUrl!}
+                alt="Foto do evento"
+                className="w-full max-h-48 object-cover"
+              />
+              <button
+                type="button"
+                onClick={handleRemovePhoto}
+                className="absolute top-2 right-2 bg-slate-900/70 hover:bg-rose-600 text-white rounded-lg p-1.5 transition-colors cursor-pointer"
+                aria-label="Remover foto"
+                title="Remover foto"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              {photoFile && (
+                <div className="absolute bottom-2 left-2 bg-indigo-600/90 text-white text-[10px] font-semibold px-2 py-1 rounded-lg">
+                  Nova foto selecionada
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className={`flex flex-col items-center justify-center gap-2 w-full py-6 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
+                errors.foto
+                  ? 'border-rose-300 bg-rose-50/30'
+                  : 'border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/30'
+              }`}
+            >
+              {photoRemoved ? (
+                <ImageOff className="w-6 h-6 text-slate-400" />
+              ) : (
+                <Camera className="w-6 h-6 text-slate-400" />
+              )}
+              <p className="text-xs text-slate-500 font-medium">
+                {photoRemoved ? 'Foto removida' : 'Toque para tirar/anexar foto'}
+              </p>
+              <p className="text-[10px] text-slate-400">JPEG, PNG, WEBP até 8MB</p>
+            </div>
+          )}
+
+          {/* Input invisível para câmera/galeria. No celular, capture="environment"
+              sugere câmera traseira; no desktop abre o seletor de arquivos normal. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            aria-hidden="true"
+            onChange={handlePhotoSelect}
+          />
+
+          {/* Botão secundário para trocar a foto (quando já tem uma) */}
+          {(photoPreviewUrl || (existingPhotoUrl && !photoRemoved)) && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              Trocar foto
+            </button>
+          )}
+
+          {errors.foto && (
+            <p className="text-[10px] text-rose-500 font-medium flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" /> {errors.foto}
             </p>
           )}
         </div>

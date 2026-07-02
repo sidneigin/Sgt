@@ -8,6 +8,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { EventReport } from './types';
+import type { PhotoChange } from './components/ReportForm';
 import { validateEventReport } from './utils/validateReport';
 import { translateFirebaseError } from './utils/firebaseErrors';
 import ReportForm from './components/ReportForm';
@@ -20,7 +21,9 @@ import {
   googleSignOut, 
   subscribeToReports, 
   saveReportToFirestore, 
-  deleteReportFromFirestore, 
+  deleteReportFromFirestore,
+  uploadPhotoToDrive,
+  deletePhotoFromDrive,
   uploadPdfToDrive,
   setAccessToken,
   getAccessToken
@@ -120,11 +123,9 @@ export default function App() {
   };
 
   // Create or Update Report (sempre via Firestore — o app exige login antes de qualquer acesso)
-  const handleSaveReport = async (reportData: Omit<EventReport, 'id' | 'createdAt'>) => {
-    if (!user) return; // proteção extra; a UI nunca deveria chegar aqui sem login
+  const handleSaveReport = async (reportData: Omit<EventReport, 'id' | 'createdAt'>, photoChange: PhotoChange) => {
+    if (!user) return;
 
-    // Validação central: garante que dados malformados nunca cheguem ao Firestore,
-    // mesmo que algum fluxo futuro chame esta função sem passar pela validação do formulário.
     const validation = validateEventReport(reportData);
     if (!validation.valid) {
       triggerAlert(`Não foi possível salvar: ${validation.errors[0]}`, 'error');
@@ -132,21 +133,64 @@ export default function App() {
     }
 
     try {
+      const accessToken = getAccessToken();
+
       if (editingReport) {
-        // Update existing
+        let fotoUrl = editingReport.fotoUrl;
+        let fotoDriveId = editingReport.fotoDriveId;
+
+        if (photoChange.type === 'set') {
+          // Remove foto antiga do Drive se existir
+          if (fotoDriveId && accessToken) {
+            try { await deletePhotoFromDrive(accessToken, fotoDriveId); } catch {}
+          }
+          if (!accessToken) {
+            triggerAlert('Faça login novamente para enviar fotos para o Drive.', 'error');
+            return;
+          }
+          const result = await uploadPhotoToDrive(accessToken, photoChange.file, editingReport.id);
+          fotoUrl = result.viewUrl;
+          fotoDriveId = result.fileId;
+
+        } else if (photoChange.type === 'remove') {
+          if (fotoDriveId && accessToken) {
+            try { await deletePhotoFromDrive(accessToken, fotoDriveId); } catch {}
+          }
+          fotoUrl = undefined;
+          fotoDriveId = undefined;
+        }
+
         const updatedReport: EventReport = {
           ...editingReport,
           ...reportData,
+          fotoUrl,
+          fotoDriveId,
         };
         await saveReportToFirestore(updatedReport, user.uid);
         triggerAlert('Relatório atualizado com sucesso!');
         setEditingReport(null);
+
       } else {
-        // Create new
+        const newId = `report_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        let fotoUrl: string | undefined;
+        let fotoDriveId: string | undefined;
+
+        if (photoChange.type === 'set') {
+          if (!accessToken) {
+            triggerAlert('Faça login novamente para enviar fotos para o Drive.', 'error');
+            return;
+          }
+          const result = await uploadPhotoToDrive(accessToken, photoChange.file, newId);
+          fotoUrl = result.viewUrl;
+          fotoDriveId = result.fileId;
+        }
+
         const newReport: EventReport = {
-          id: `report_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          id: newId,
           ...reportData,
-          createdAt: Date.now()
+          fotoUrl,
+          fotoDriveId,
+          createdAt: Date.now(),
         };
         await saveReportToFirestore(newReport, user.uid);
         triggerAlert('Relatório cadastrado com sucesso!');
@@ -158,17 +202,19 @@ export default function App() {
     }
   };
 
-  // Delete Report (sempre via Firestore)
   const handleDeleteReport = async (id: string) => {
     try {
-      await deleteReportFromFirestore(id);
+      const reportToDelete = reports.find((r) => r.id === id);
+      if (reportToDelete?.fotoDriveId) {
+        const accessToken = getAccessToken();
+        if (accessToken) {
+          try { await deletePhotoFromDrive(accessToken, reportToDelete.fotoDriveId); } catch {}
+        }
+      }
 
-      if (selectedReportId === id) {
-        setSelectedReportId(null);
-      }
-      if (editingReport?.id === id) {
-        setEditingReport(null);
-      }
+      await deleteReportFromFirestore(id);
+      if (selectedReportId === id) setSelectedReportId(null);
+      if (editingReport?.id === id) setEditingReport(null);
       triggerAlert('Relatório excluído com sucesso!', 'success');
     } catch (error: any) {
       console.error(error);

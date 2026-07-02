@@ -99,6 +99,19 @@ export default function ReportModal({
 
             {/* Modal Body */}
             <div className="px-6 py-6 max-h-[70vh] overflow-y-auto space-y-6 scrollbar-thin scrollbar-thumb-slate-200">
+
+              {/* Foto do evento */}
+              {report.fotoUrl && (
+                <div className="rounded-xl overflow-hidden border border-slate-100 bg-slate-50">
+                  <img
+                    src={report.fotoUrl}
+                    alt={`Foto do evento: ${report.evento}`}
+                    className="w-full max-h-64 object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              )}
+
               {/* Info Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
                 <div className="flex items-center gap-3 text-slate-700">

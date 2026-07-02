@@ -17,25 +17,27 @@ function loadLogoImage(): Promise<HTMLImageElement> {
   });
 }
 
-// Generate PDF for a single report
-export async function generateSingleReportPDF(report: EventReport) {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
+// Carrega uma imagem de uma URL (Storage, etc.) como HTMLImageElement para inserir no jsPDF.
+function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Falha ao carregar imagem: ${url}`));
+    img.src = url;
   });
-
+}
+// Desenha o conteúdo completo de UM relatório na posição atual do documento jsPDF.
+// Reutilizada tanto pelo PDF individual quanto pelo PDF detalhado (mensal/anual),
+// para manter os dois com exatamente a mesma aparência por relatório.
+async function drawSingleReportContent(
+  doc: jsPDF,
+  report: EventReport,
+  logoElement: HTMLImageElement | null
+) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
-
-  // Load logo image
-  let logoElement: HTMLImageElement | null = null;
-  try {
-    logoElement = await loadLogoImage();
-  } catch (err) {
-    console.error('Logo image could not be loaded for PDF', err);
-  }
 
   // Primary palette
   const primaryColor: [number, number, number] = [30, 41, 59]; // Slate 800
@@ -88,7 +90,6 @@ export async function generateSingleReportPDF(report: EventReport) {
   currentY += 8;
 
   // 3. Metadata Grid (Key info fields)
-  // We'll create a structured table for the basic fields using autoTable for perfect layout
   const metaData: any[][] = [
     [
       { content: 'Data do Evento:', styles: { fontStyle: 'bold', textColor: secondaryColor } },
@@ -134,7 +135,36 @@ export async function generateSingleReportPDF(report: EventReport) {
 
   currentY += 12;
 
-  // 4. Participants Section
+  // 4. Foto do evento (se existir)
+  if (report.fotoUrl) {
+    try {
+      const fotoElement = await loadImageFromUrl(report.fotoUrl);
+      const maxW = pageWidth - (margin * 2);
+      const maxH = 70; // altura máxima da foto no PDF
+      const ratio = fotoElement.naturalWidth / fotoElement.naturalHeight;
+      const imgW = Math.min(maxW, maxH * ratio);
+      const imgH = imgW / ratio;
+
+      // Verifica se cabe na página, senão adiciona nova
+      if (currentY + imgH > pageHeight - margin - 15) {
+        doc.addPage();
+        currentY = margin + 10;
+      }
+
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('FOTO DO EVENTO', margin, currentY);
+      currentY += 5;
+
+      doc.addImage(fotoElement, 'JPEG', margin, currentY, imgW, imgH);
+      currentY += imgH + 10;
+    } catch {
+      // Se falhar ao carregar a foto (ex: sem internet, URL expirada), continua sem ela
+    }
+  }
+
+  // 5. Participants Section
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
@@ -170,8 +200,6 @@ export async function generateSingleReportPDF(report: EventReport) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   
-  // Calculate if it fits on this page, otherwise autoTable / manual page breaks would be needed
-  // We can write it line by line or use splitTextToSize and loop over lines
   const lineHeight = 5.5;
   for (let i = 0; i < descLines.length; i++) {
     if (currentY + lineHeight > pageHeight - margin - 15) {
@@ -200,6 +228,29 @@ export async function generateSingleReportPDF(report: EventReport) {
     doc.text(descLines[i], margin, currentY);
     currentY += lineHeight;
   }
+}
+
+// Generate PDF for a single report
+export async function generateSingleReportPDF(report: EventReport) {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 20;
+
+  // Load logo image
+  let logoElement: HTMLImageElement | null = null;
+  try {
+    logoElement = await loadLogoImage();
+  } catch (err) {
+    console.error('Logo image could not be loaded for PDF', err);
+  }
+
+  drawSingleReportContent(doc, report, logoElement);
 
   // Footer decoration on all pages
   const totalPages = doc.internal.pages.length - 1;
@@ -219,8 +270,13 @@ export async function generateSingleReportPDF(report: EventReport) {
   return doc;
 }
 
-// Generate a consolidated PDF table of multiple reports
-export async function generateConsolidatedReportsPDF(reports: EventReport[]) {
+// Generate a consolidated PDF table of multiple reports.
+// title/subtitle permitem reaproveitar esta função tanto para o "todos listados"
+// quanto para relatórios mensais/anuais com um cabeçalho específico do período.
+export async function generateConsolidatedReportsPDF(
+  reports: EventReport[],
+  options?: { title?: string; filename?: string }
+) {
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
@@ -251,11 +307,12 @@ export async function generateConsolidatedReportsPDF(reports: EventReport[]) {
     doc.addImage(logoElement, 'JPEG', pageWidth - margin - 22, 6.5, 22, 22);
   }
 
-  // Title
+  // Title (customizável: "todos listados", relatório mensal, ou anual)
+  const title = options?.title || 'CONSOLIDADO DE RELATÓRIOS SGT ARMAS CMD XXIX';
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text('CONSOLIDADO DE RELATÓRIOS SGT ARMAS CMD XXIX', margin, 18);
+  doc.text(title, margin, 18);
 
   // Details
   doc.setFont('helvetica', 'normal');
@@ -322,6 +379,7 @@ export async function generateConsolidatedReportsPDF(reports: EventReport[]) {
   });
 
   // Save the PDF
-  doc.save(`consolidado_relatorios_${new Date().toISOString().split('T')[0]}.pdf`);
+  const filename = options?.filename || `consolidado_relatorios_${new Date().toISOString().split('T')[0]}.pdf`;
+  doc.save(filename);
   return doc;
 }

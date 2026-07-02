@@ -28,7 +28,9 @@ service cloud.firestore {
         && data.descricao is string && data.descricao.size() > 0 && data.descricao.size() <= 10000
         && (!('participantes' in data) || (data.participantes is string && data.participantes.size() <= 5000))
         && data.data is string && data.data.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-        && data.hora is string && data.hora.matches('^[0-9]{2}:[0-9]{2}$');
+        && data.hora is string && data.hora.matches('^[0-9]{2}:[0-9]{2}$')
+        && (!('fotoUrl' in data) || (data.fotoUrl is string && data.fotoUrl.size() <= 2000))
+        && (!('fotoDriveId' in data) || (data.fotoDriveId is string && data.fotoDriveId.size() <= 200));
     }
   }
 }
